@@ -81,18 +81,19 @@ Targets: 100 MB maximum attachment size, 1 GB mailbox quota per user, up to two 
 - `/search`: subject and sender search
 - `/blocks`, `/reports`, `/settings`
 
-The current FastAPI code is only a starter with health/status endpoints. These business routes are not implemented yet.
+The FastAPI source now includes Supabase Auth registration, username/password login, token refresh, current-user, logout and recovery routes. The backend is not deployed yet; these routes still require the publishable key and a server-only Supabase secret key in the hosting environment.
 
 ## 8. Implementation phases
 
 1. Repository and API foundation — started.
 2. Database foundation and RLS — applied; security advisor currently reports no findings.
-3. Backend authentication and messaging endpoints — next.
-4. Kotlin Android app shell and mailbox UI.
-5. Private object storage, attachments and groups.
-6. Search, spam handling, blocking, notifications and localization.
-7. Security review, backup/restore tests and deployment.
-8. Public beta with explicit quotas and monitoring.
+3. Authentication source and database username lookup — implemented in the repository; deployment/configuration and live tests remain.
+4. Messaging endpoints and authenticated authorization — next.
+5. Kotlin Android app shell and mailbox UI.
+6. Private object storage, attachments and groups.
+7. Search, spam handling, blocking, notifications and localization.
+8. Security review, backup/restore tests and deployment.
+9. Public beta with explicit quotas and monitoring.
 
 ## 9. Out of scope for the first release
 

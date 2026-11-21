@@ -4,7 +4,7 @@ PixMail is an independent, Android-first private messaging and mail-style applic
 
 ## Project status
 
-**Early implementation.** The Supabase database foundation and RLS policies are deployed. A starter FastAPI backend and a GitHub Actions test workflow are in the repository. The Android app, production API routes, and deployment are not ready yet.
+**Early implementation.** The Supabase database foundation and RLS policies are deployed. FastAPI source now includes Supabase Auth registration, username/password login, session refresh, current-user, logout and password-recovery routes. GitHub Actions tests are configured. The backend is not deployed, and the Android app is not built yet. The server still needs its Supabase publishable key and server-only secret key configured.
 
 ## Product scope
 

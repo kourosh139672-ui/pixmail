@@ -37,8 +37,10 @@ async def health() -> dict[str, str]:
 @app.get(f"{settings.api_v1_prefix}/status", tags=["system"])
 async def api_status() -> dict[str, str]:
     configured = bool(settings.supabase_url and settings.supabase_publishable_key)
+    username_login = bool(settings.supabase_secret_key)
     return {
         "status": "prototype",
         "authentication": "configured" if configured else "not_configured",
+        "username_login": "configured" if username_login else "needs_server_secret_key",
         "database": "not_connected",
     }

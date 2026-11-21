@@ -11,12 +11,13 @@ The old empty channel tables were removed because channels are not part of the P
 ## Security model
 
 - Supabase Auth is the source of user identity; `profiles.id` references `auth.users.id`.
-- RLS is enabled on all ten public tables.
-- Authenticated users can read only mailbox copies assigned to their own account.
-- Mailbox status fields are user-specific; clients cannot change mailbox/message ownership.
+- RLS is enabled on all ten public tables, with 25 policies currently configured.
+- The `anon` role has no table privileges on these PixMail tables.
+- Authenticated users can read only mailbox copies assigned to their own account and the member roster of conversations they belong to.
+- Mailbox status fields are user-specific; clients cannot change mailbox/message ownership or globally delete messages.
 - The FastAPI backend is intended to perform privileged writes after validating the user's access token and checking authorization.
 - A server-side credential must never be shipped in the Android app or committed to this repository.
-- New public tables require explicit Data API grants. The current schema grants the authenticated role only the intended user-facing operations and grants server-side access to `service_role`.
+- New public tables require explicit Data API grants. The current schema grants the authenticated role only intended user-facing operations and grants server-side access to `service_role`.
 
 ## Current limitations
 
@@ -26,4 +27,4 @@ The old empty channel tables were removed because channels are not part of the P
 - Device records are limited to two active rows when inserted by the trusted backend. Backend token/session revocation is still to be implemented.
 - Backups, push notifications, spam automation and E2EE are not active.
 
-Security and performance advisors should be rerun after meaningful schema changes and before launch.
+The last security advisor check returned no findings. Performance advisor findings currently concern indexes not yet used because the new tables are empty; recheck after real workload data exists.

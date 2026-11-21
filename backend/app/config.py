@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     supabase_url: str = ""
     supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

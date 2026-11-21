@@ -4,7 +4,7 @@ PixMail is an independent, Android-first private messaging and mail-style applic
 
 ## Project status
 
-**Early implementation.** The Supabase database foundation and RLS policies are deployed. FastAPI source now includes Supabase Auth registration, username/password login, session refresh, current-user, logout and password-recovery routes. GitHub Actions tests are configured. The backend is not deployed, and the Android app is not built yet. The server still needs its Supabase publishable key and server-only secret key configured.
+**Early implementation.** The Supabase database foundation and RLS policies are deployed. FastAPI source includes Supabase Auth registration, username/password login, session refresh, current-user, logout and password-recovery routes. A Render deployment blueprint and GitHub Actions tests are configured. The backend is not deployed until the Render setup is completed, and the Android app is not built yet.
 
 ## Product scope
 
@@ -28,8 +28,8 @@ The planned address format is `username@pixmail.io`. This becomes a real, public
 
 - [Architecture and implementation status](ARCHITECTURE.md)
 - [Supabase schema and security notes](supabase/README.md)
-- [Backend setup](backend/README.md)
+- [Backend setup and deployment](backend/README.md)
 
-## Deployment note
+## Deployment
 
-GitHub Pages can host static project pages and documentation, but it cannot run the Python API or PostgreSQL database. Those components need separate hosting. Free hosting plans have resource limits and are suitable for a prototype, not an unlimited production service.
+A free Render blueprint is included. Start it using [Deploy PixMail on Render](https://render.com/deploy?repo=https://github.com/kourosh139672-ui/pixmail). Free web services sleep after 15 minutes of inactivity and are suitable for prototypes, not production. GitHub Pages cannot run the Python API or PostgreSQL database.

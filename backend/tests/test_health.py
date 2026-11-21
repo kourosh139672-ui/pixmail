@@ -18,6 +18,7 @@ def test_status_reports_auth_configuration_without_claiming_database_connection(
     assert body["status"] == "prototype"
     assert body["database"] == "not_connected"
     assert body["authentication"] in {"configured", "not_configured"}
+    assert body["username_login"] in {"configured", "needs_server_secret_key"}
 
 
 def test_register_rejects_username_with_symbols() -> None:

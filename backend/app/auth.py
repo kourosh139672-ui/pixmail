@@ -38,18 +38,6 @@ def _settings():
     return settings
 
 
-def _provider_error(response: httpx.Response) -> str:
-    try:
-        body = response.json()
-    except ValueError:
-        return "The authentication provider returned an unexpected response."
-    if isinstance(body, dict):
-        message = body.get("msg") or body.get("message") or body.get("error_description")
-        if isinstance(message, str) and message:
-            return message[:240]
-    return "The authentication provider could not complete the request."
-
-
 async def _send(method: str, path: str, *, headers: dict[str, str], json: dict[str, Any] | None = None) -> httpx.Response:
     settings = _settings()
     url = f"{settings.supabase_url.rstrip('/')}{path}"
@@ -117,11 +105,11 @@ async def register(payload: RegisterRequest) -> dict[str, Any]:
         },
     )
     if response.status_code >= 400:
-        detail = _provider_error(response)
-        # Do not expose provider internals or database details to app users.
-        if "already" in detail.lower() or "registered" in detail.lower():
-            detail = "This recovery email or username may already be registered."
-        raise HTTPException(status_code=400, detail=detail)
+        # Avoid exposing Auth/Postgres internals to the mobile client.
+        raise HTTPException(
+            status_code=400,
+            detail="Account could not be created. Check the username and recovery email, then try again.",
+        )
 
     try:
         result = response.json()

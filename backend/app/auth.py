@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any
 
 import httpx
@@ -106,7 +105,7 @@ async def _email_for_username(username: str) -> str | None:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest) -> dict[str, Any]:
-    settings = _settings()
+    _settings()
     response = await _send(
         "POST",
         "/auth/v1/signup",

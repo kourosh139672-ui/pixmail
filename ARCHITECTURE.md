@@ -1,106 +1,103 @@
-# PixMail — Initial Architecture
+# PixMail — Architecture and implementation status
 
 ## 1. Product definition
 
-PixMail is an Android-first, independent mail-style messaging service. In its first release, users can communicate only with other PixMail users. Delivery to Gmail, Outlook, or other external email providers is not included.
+PixMail is an independent, Android-first mail-style messaging service. The first release supports communication only between PixMail accounts. Sending to or receiving from Gmail, Outlook, or other external email providers is out of scope.
 
-The planned address format is `username@pixmail.io`. Until the domain is registered and configured, this is only an internal identifier, not a working public email address.
+The planned account address is `username@pixmail.io`. Until the domain is registered and mail infrastructure is configured, this is an internal identifier only—not a working public email address.
 
-## 2. Technology choices
+## 2. Technology
 
 | Layer | Choice | Responsibility |
 |---|---|---|
-| Android client | Kotlin | Native Android app and local UI |
-| Backend API | Python + FastAPI | Authentication, users, conversations, messages, attachments |
-| Database | PostgreSQL | Accounts, metadata, conversations, message records, settings |
-| File storage | Separate object storage | Uploaded attachments and media |
+| Android client | Kotlin | Native Android application |
+| Backend API | Python + FastAPI | Authenticated business logic and messaging |
+| Database | Supabase PostgreSQL 17 | Profiles, conversations, messages, mailbox state |
+| Identity | Supabase Auth | Account identity and authentication |
+| File storage | Private object storage (not configured yet) | Attachments and media |
 | API transport | HTTPS / JSON | Client-server communication |
-| Notifications | Push provider, selected during deployment | New-message notifications |
+| Notifications | Push provider (not selected) | New-message notifications |
 
-GitHub Pages may host static documentation or a landing page. It cannot host the FastAPI process or PostgreSQL database.
+GitHub Pages can host static documentation or a landing page; it cannot run FastAPI or PostgreSQL.
 
-## 3. Main application modules
+## 3. Product modules
 
-- Authentication: sign-up, sign-in, sign-out, password reset, session management
-- Mailbox: Inbox, Sent, Drafts, Archive, Spam, Trash
-- Messaging: compose, reply, forward, read status, delivery status
-- Conversations: one-to-one conversations and groups
-- Attachments: upload, download, file-size validation, access checks
-- Contacts and profiles: username, optional display name, profile settings
-- Search: subject/title and sender search for the initial release
-- Safety: block controls, spam detection, abuse reporting, rate limits
-- Settings: Persian/English, light/dark/system theme, notifications, privacy
+- Authentication and account recovery
+- Mailbox: Inbox, Sent, Drafts, Archive, Spam, Trash, Starred
+- Messaging: compose, reply, internal forward, read/delivery state
+- Private conversations and groups (no channels)
+- Attachments: images, video, files and audio
+- Profiles and username lookup
+- Search by subject and sender in the first release
+- Blocking, spam signals and abuse reports
+- Persian/English, light/dark/system theme and notifications
 
-## 4. Initial data model
+## 4. Database implementation
 
-Core PostgreSQL tables are expected to include:
+The Supabase project is active and the first database schema has been applied. Supabase Auth is the identity source; passwords are not stored in PixMail tables.
 
-- `users`: user ID, normalized username, password hash, optional display name, recovery email, account status, timestamps
-- `sessions`: user ID, hashed refresh token, device label, expiry and revocation timestamps
-- `conversations`: conversation ID, type (direct/group), title, creator, timestamps
-- `conversation_members`: conversation ID, user ID, role, join/leave timestamps
-- `messages`: message ID, conversation ID, sender ID, subject, encrypted/plain payload metadata, timestamps
-- `message_recipients`: message ID, recipient ID, delivery/read timestamps, per-user mailbox state
-- `attachments`: attachment ID, message ID, storage key, MIME type, byte size, checksum
-- `user_blocks`: blocker ID, blocked user ID, created timestamp
-- `reports`: reporter, target, reason, review status, timestamps
-- `user_settings`: locale, theme, notification preferences
+Current public tables:
+- `profiles`: username, optional display/full name, avatar and timestamps; profile ID references `auth.users`.
+- `conversations`: private or group conversation and creator.
+- `conversation_members`: membership and role.
+- `messages`: message content, optional subject, content type and edit/global-delete metadata.
+- `mailbox_items`: one row per message per user, keeping read, archive, trash, spam, star and local-delete state separate for each participant.
+- `attachments`: metadata and private storage path; actual object storage is not configured.
+- `user_blocks`: private block list.
+- `reports`: abuse reports and review status.
+- `user_settings`: locale, theme and notification preferences.
+- `device_sessions`: device records; a database trigger keeps at most two active records per account when the backend registers a new device.
 
-The final schema must be reviewed before migrations are created. Message deletion needs per-user mailbox state so that deleting a message from one user's mailbox does not accidentally erase another user's copy.
+The unused channel tables were removed. All ten current public tables have RLS enabled. Authenticated users have narrowly scoped access; sensitive writes such as conversation creation, membership changes, message delivery, attachment metadata and device registration are reserved for the trusted backend. The server must verify the user's Supabase access token and authorize every operation before using its server-side database credential.
 
-## 5. Security baseline
+## 5. Security baseline and limitations
 
-- HTTPS for every client-server connection
-- Passwords stored only as strong salted password hashes (Argon2id or an equivalent maintained password-hashing algorithm)
-- Short-lived access tokens and securely stored, revocable refresh sessions
-- Server-side authorization checks for every conversation, message, and attachment
-- Upload size/type validation and randomized storage keys
-- Rate limits for sign-in, registration, message sending, and uploads
-- Automated spam signals and user reporting
-- Secrets stored in deployment environment variables, never committed to Git
-- Regular dependency updates and security logging without recording message contents or passwords
+- HTTPS for every client-server connection.
+- Supabase Auth handles password storage and account identity.
+- RLS is enabled on every PixMail public table.
+- Message and mailbox visibility is user-specific; one user's archive/trash/delete state does not change another user's mailbox copy.
+- Service/secret credentials must remain on the server and must never be embedded in Android or committed to Git.
+- Upload size is constrained to 100 MB in attachment metadata; the real storage bucket and upload authorization are not configured yet.
+- The two-device database rule applies when trusted backend device-registration writes occur; full token/session revocation still needs backend implementation.
+- Rate limits, spam automation, quota enforcement and backup scheduling still need implementation.
 
 ### Optional end-to-end encryption
 
-The selected product direction includes standard transport/storage protections plus optional end-to-end encryption (E2EE) for selected conversations or messages.
-
-E2EE must be designed before implementation, not added as a cosmetic toggle. The server must never receive users' private encryption keys. When content is end-to-end encrypted, the server cannot read or full-text-search that content. Group encryption and multi-device key management require additional protocol design. The initial prototype should keep the E2EE feature disabled until its key lifecycle and recovery behavior have been reviewed.
+E2EE remains disabled. It must not be presented as available until key creation, recovery, group encryption and multi-device key management have been designed and reviewed.
 
 ## 6. Product limits and deployment realities
 
-The planned product settings include a 100 MB maximum attachment size, 1 GB mailbox quota per user, up to two active devices per account, and weekly backups. These are product targets, not guarantees of free hosting. The server must enforce lower operational limits whenever the selected free provider requires them.
+Targets: 100 MB maximum attachment size, 1 GB mailbox quota per user, up to two active devices and weekly backups. These are product goals, not guarantees of free hosting. The selected provider's actual storage, bandwidth, compute and backup limits must be enforced.
 
-A free-tier prototype will have storage, bandwidth, compute, uptime, and backup limits. “Unlimited scale” is a long-term design goal, not a property of a free plan.
+“Unlimited scale” is a long-term design goal, not a property of a free plan.
 
 ## 7. API areas
 
-Initial API groups:
-
-- `/auth`: registration, login, refresh, logout, password reset
+- `/auth`: registration, login, refresh, logout and recovery
 - `/users`: profile and username lookup
-- `/conversations`: create/list direct and group conversations
-- `/messages`: send/list/read/delete/archive messages
-- `/attachments`: upload and download authorized attachments
-- `/search`: search supported mailbox metadata
-- `/blocks`: block and unblock users
-- `/reports`: submit abuse reports
-- `/settings`: locale, theme, notification and privacy preferences
+- `/conversations`: direct and group conversations
+- `/messages`: send/list/read/delete/archive
+- `/attachments`: authorized upload/download
+- `/search`: subject and sender search
+- `/blocks`, `/reports`, `/settings`
 
-All endpoints require input validation, authentication where appropriate, authorization, and consistent error responses.
+The current FastAPI code is only a starter with health/status endpoints. These business routes are not implemented yet.
 
 ## 8. Implementation phases
 
-1. Repository foundation: documentation, backend skeleton, configuration example, tests and CI checks.
-2. Backend MVP: PostgreSQL schema, registration/login, sessions, direct messages, mailbox states.
-3. Android MVP: Kotlin app shell, authentication screens, inbox, compose and conversation view.
-4. Attachments and groups: object storage, group membership, upload/download authorization.
-5. Product features: search, spam handling, blocking, notifications, themes and localization.
-6. Security hardening: threat review, E2EE protocol design, backup/restore tests, deployment review.
-7. Public beta: deploy to a free-tier environment with explicit quotas and monitoring.
+1. Repository and API foundation — started.
+2. Database foundation and RLS — applied; security advisor currently reports no findings.
+3. Backend authentication and messaging endpoints — next.
+4. Kotlin Android app shell and mailbox UI.
+5. Private object storage, attachments and groups.
+6. Search, spam handling, blocking, notifications and localization.
+7. Security review, backup/restore tests and deployment.
+8. Public beta with explicit quotas and monitoring.
 
 ## 9. Out of scope for the first release
 
-- Sending or receiving email through Gmail, Outlook, or arbitrary external mail servers
-- Public SMTP/IMAP compatibility
-- Promising unlimited storage, bandwidth, or uptime
-- Enabling E2EE before key management and recovery are properly designed
+- External email delivery to Gmail, Outlook or arbitrary mail servers.
+- Public SMTP/IMAP compatibility.
+- Public channels.
+- Promising unlimited storage, bandwidth or uptime.
+- Enabling E2EE before key management and recovery are ready.

@@ -2,7 +2,7 @@
 
 ## Product decision
 
-PixMail ID is the single-sign-on identity provider for first-party Pix services and, later, approved third-party clients.
+PixMail ID is a free, public single-sign-on identity provider. Any developer may register an application and request PixMail sign-in credentials; registration is free and subject to basic abuse prevention and security checks.
 
 The selected identity data is:
 - Stable subject/user identifier (`sub` / Supabase user ID)
@@ -66,7 +66,7 @@ Provider endpoints for project cuxioyecyvxqykymcufg:
 5. Enable OAuth 2.1 Server.
 6. Set Authorization Path to /oauth/consent.
 7. Set the Auth Site URL to the HTTPS origin that hosts the PixMail consent UI.
-8. Keep dynamic client registration disabled for the first-party Pix ecosystem.
+8. Do not expose Supabase's raw dynamic client-registration endpoint to the public. PixMail will provide its own developer registration flow, validate each app's redirect URIs, and create/manage OAuth clients through a trusted server-side process.
 9. For OIDC ID tokens, verify the project uses asymmetric JWT signing keys (ES256 or RS256); HS256 cannot issue OIDC ID tokens.
 
 The hook was deployed to the database, but it is **not confirmed enabled** in the Dashboard yet.
@@ -86,7 +86,21 @@ The /oauth/consent page must:
 8. Navigate only to the redirect_url returned by Supabase Auth.
 9. Never ask for or reveal the user's password to the client app.
 
-## OAuth client registration policy
+## Public developer access and API keys
+
+PixMail ID is free for developers and is intended to be available to developers worldwide.
+
+The developer portal will let a developer register an application and receive credentials:
+- **PixMail API Key / Client ID:** public identifier for the registered app. It is not a password and cannot authenticate a user by itself.
+- **Client Secret:** issued only to confidential server-side clients. It must never be embedded in Android apps, browser JavaScript, public repositories, or shared in chat.
+- **Redirect URI allowlist:** exact HTTPS callback URLs (localhost may be allowed for local development only). Authorization requests with an unregistered redirect URI are rejected.
+- **PKCE (S256):** required for public clients, including Android and browser apps.
+
+Registration and basic PixMail ID sign-in are free. To protect users, PixMail may apply reasonable rate limits, automated abuse checks, and suspend malicious clients. No payment is required for a developer account or a basic client registration.
+
+Each app gets a separate client ID and consent screen identity. The developer must provide an app name, app type, website or project URL, and redirect URI(s). Developers must not impersonate other brands or request mailbox/message access in the initial release.
+
+The public developer portal and client provisioning service are not implemented yet. Until they exist, client registration remains an operator-managed step; do not promise that developers can self-issue API keys today.
 
 Register each Pix service as a separate OAuth client. Use exact HTTPS redirect URIs. Use public clients with PKCE for Android/mobile and browser-only apps; use confidential clients only when a service has a trusted server capable of protecting its client secret. Keep client secrets out of mobile apps, browser bundles, source control, and chat.
 
@@ -115,6 +129,8 @@ Initial standard OIDC scope: `openid` only. The internal alias is fetched separa
 ## Implementation status
 
 - [x] Selected internal `username@pixmail.io` alias for connected services.
+- [x] Product decision: PixMail ID registration and basic sign-in will be free and open to developers worldwide, using per-app API Key / Client ID.
+- [ ] Build public developer portal, app registration, redirect URI allowlist, API Key / Client ID issuance, and abuse controls.
 - [x] Added authenticated PixMail Identity endpoint returning only the internal alias and stable subject.
 - [x] Minimized regular `/auth/me` response so it does not return the recovery email.
 - [x] Created database Custom Access Token Hook; OAuth access-token `email` claim is mapped to the internal alias and marked unverified.

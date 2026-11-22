@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<title>تأیید ورود با PixMail</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#141c30;--line:#2a3650;--text:#eef3ff;--muted:#aab7d0;--accent:#9aa9ff;--good:#8ce0b0;--bad:#ff9d9d}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#24335e 0,#0b1020 55%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:20px}
+main{width:min(520px,100%)}.brand{text-align:center;color:var(--accent);font-weight:800;letter-spacing:.12em;font-size:13px}
+.card{background:#141c30f2;border:1px solid var(--line);border-radius:22px;padding:26px;margin-top:16px;box-shadow:0 24px 70px #0005}
+.logo{width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,#a8b4ff,#687bdb);color:#10172b;display:grid;place-items:center;font-size:26px;font-weight:900;margin:0 auto 16px}
+h1{text-align:center;font-size:25px;margin:8px 0}p{color:var(--muted);line-height:1.9}
+.appname{font-size:20px;font-weight:800;color:white;text-align:center;margin:16px 0 4px}
+.info{background:#0d1528;border:1px solid var(--line);padding:14px;border-radius:14px;margin:16px 0}
+label{display:block;margin:12px 0 6px;color:#dce5fa;font-size:14px}input{width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:#0b1325;color:white;font:inherit}
+button{width:100%;padding:13px;border:0;border-radius:11px;font:inherit;font-weight:800;margin-top:12px;cursor:pointer}
+.primary{background:var(--accent);color:#10162a}.secondary{background:#27334d;color:white}.danger{background:transparent;border:1px solid #70434b;color:#ffb6bd}
+.status{padding:12px;background:#0d1528;border-radius:10px;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}.good{color:var(--good)}.bad{color:var(--bad)}.hidden{display:none!important}.small{font-size:12px}.scope{display:inline-block;background:#253250;padding:5px 9px;border-radius:20px;margin:4px;color:#dce5fa}
+</style>
+</head>
+<body><main>
+<div class="brand">PIXMAIL ID</div>
+<section class="card">
+<div class="logo">P</div>
+<h1 id="heading">ورود با PixMail</h1>
+<div id="login">
+<p style="text-align:center">برای ادامه، وارد حساب PixMail خودت شو.</p>
+<label for="username">نام کاربری PixMail</label><input id="username" autocomplete="username" maxlength="30">
+<label for="password">رمز عبور</label><input id="password" type="password" autocomplete="current-password">
+<button class="primary" id="loginBtn">ورود و ادامه</button>
+</div>
+<div id="consent" class="hidden">
+<p style="text-align:center">این برنامه درخواست دسترسی به حساب PixMail تو را دارد.</p>
+<div class="appname" id="appName">برنامه</div>
+<div class="info">
+<p><b>نشانی بازگشت:</b><br><span id="redirect" dir="ltr" style="overflow-wrap:anywhere"></span></p>
+<div id="scopes"></div>
+<p class="small">فقط اطلاعات و دسترسی‌هایی را تأیید کن که می‌شناسی.</p>
+</div>
+<button class="primary" id="approveBtn">تأیید و ادامه</button>
+<button class="danger" id="denyBtn">رد درخواست</button>
+</div>
+<div id="status" class="status small" role="status" aria-live="polite">در حال آماده‌سازی…</div>
+</section>
+<p class="small" style="text-align:center">با تأیید، به برنامه درخواست‌کننده برمی‌گردی. PixMail رمز عبورت را در اختیار آن برنامه قرار نمی‌دهد.</p>
+</main>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const SUPABASE_URL="https://cuxioyecyvxqykymcufg.supabase.co";
+const PUBLISHABLE_KEY="sb_publishable_a7mS99RDVBC_fySylkH3OQ_qoqXfbwQ";
+const API=SUPABASE_URL+"/functions/v1/pixmail-api";
+const supabase=createClient(SUPABASE_URL,PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+const $=id=>document.getElementById(id);
+const authorizationId=new URLSearchParams(location.search).get("authorization_id");
+let details=null;
+function status(message,ok=false){$("status").textContent=message;$("status").className="status small "+(ok?"good":"bad");}
+async function login(){
+ const res=await fetch(API+"/auth/login",{method:"POST",headers:{"apikey":PUBLISHABLE_KEY,"Content-Type":"application/json"},body:JSON.stringify({username:$("username").value.trim(),password:$("password").value})});
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok||!data.access_token||!data.refresh_token)throw new Error(data.error||"ورود انجام نشد. اگر حساب نیاز به تأیید دارد، ابتدا ایمیل بازیابی را بررسی کن.");
+ const {error}=await supabase.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});
+ if(error)throw error;
+}
+async function loadDetails(){
+ if(!authorizationId)throw new Error("شناسه درخواست ورود وجود ندارد.");
+ const {data,error}=await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+ if(error)throw error;
+ if(!("authorization_id" in data)) { location.replace(data.redirect_url); return; }
+ details=data;
+ $("appName").textContent=data.client?.name||"برنامه ناشناس";
+ $("redirect").textContent=data.redirect_uri||"نمایش داده نشده";
+ const scopes=(data.scope||"").split(" ").filter(Boolean);
+ $("scopes").replaceChildren();
+ if(scopes.length){const title=document.createElement("p");title.textContent="دسترسی‌های درخواستی:";$("scopes").append(title);for(const scope of scopes){const s=document.createElement("span");s.className="scope";s.textContent=scope;$("scopes").append(s);}}
+ $("login").classList.add("hidden");$("consent").classList.remove("hidden");status("درخواست را بررسی کن و سپس تأیید یا رد کن.",true);
+}
+async function init(){
+ try{
+  const {data:{session}}=await supabase.auth.getSession();
+  if(session){await loadDetails();}else{ $("login").classList.remove("hidden");status("برای دیدن جزئیات درخواست ابتدا وارد شو.",true);}
+ }catch(e){status(e.message||"بارگذاری درخواست ممکن نشد.");}
+}
+$("loginBtn").addEventListener("click",async()=>{ $("loginBtn").disabled=true;try{await login();await loadDetails();}catch(e){status(e.message||"ورود ناموفق بود.");}finally{$("loginBtn").disabled=false;}});
+$("approveBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("approveBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.approveAuthorization(authorizationId);if(error)throw error;location.assign(data.redirect_url);}catch(e){status(e.message||"تأیید درخواست انجام نشد.");$("approveBtn").disabled=false;}});
+$("denyBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("denyBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.denyAuthorization(authorizationId);if(error)throw error;location.assign(data.redirect_url);}catch(e){status(e.message||"رد درخواست انجام نشد.");$("denyBtn").disabled=false;}});
+init();
+</script>
+</body></html>

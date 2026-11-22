@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>PixMail Developer</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#141c30;--line:#2a3650;--text:#eef3ff;--muted:#aab7d0;--accent:#8b9cff;--good:#8ce0b0;--bad:#ff9d9d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#1b2850 0,#0b1020 48%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+main{width:min(900px,92vw);margin:38px auto;padding-bottom:50px}.brand{font-size:14px;color:var(--accent);font-weight:700;letter-spacing:.08em}
+h1{font-size:clamp(28px,5vw,42px);margin:10px 0}p{color:var(--muted);line-height:1.9}
+.panel{background:#141c30eF;border:1px solid var(--line);border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 18px 55px #0003}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+label{display:block;color:#dce5fa;font-size:14px;margin:12px 0 6px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:#0d1528;color:var(--text);padding:12px;font:inherit}
+textarea{min-height:90px;direction:ltr;text-align:left}
+button{border:0;border-radius:10px;background:var(--accent);color:#10162a;font-weight:800;padding:12px 18px;font:inherit;cursor:pointer;margin-top:14px}
+button.secondary{background:#27334d;color:var(--text)}button:disabled{opacity:.5;cursor:not-allowed}
+.small{font-size:13px}.muted{color:var(--muted)}.hidden{display:none!important}
+.status{padding:12px;border-radius:10px;background:#0d1528;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.good{color:var(--good)}.bad{color:var(--bad)}
+.app{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px;background:#10182b}
+code,pre{direction:ltr;text-align:left;overflow-wrap:anywhere;white-space:pre-wrap}
+footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">PIXMAIL ID · DEVELOPERS</div>
+  <h1>ورود با PixMail را به برنامه‌ات اضافه کن</h1>
+  <p>ثبت برنامه رایگان است. برای هر برنامه یک Client ID جداگانه ساخته می‌شود. برنامه‌های موبایل و مرورگر باید از نوع عمومی باشند و PKCE را اجرا کنند.</p>
+
+  <section class="panel" id="loginPanel">
+    <h2>ورود به حساب PixMail</h2>
+    <div class="grid">
+      <div><label for="username">نام کاربری PixMail</label><input id="username" autocomplete="username" maxlength="30"></div>
+      <div><label for="password">رمز عبور</label><input id="password" type="password" autocomplete="current-password"></div>
+    </div>
+    <button id="loginBtn">ورود</button>
+    <div class="status small" id="loginStatus" aria-live="polite">برای ساخت یا مدیریت برنامه‌ها ابتدا وارد حساب PixMail شو.</div>
+  </section>
+
+  <section class="panel hidden" id="dashboard">
+    <div class="grid" style="align-items:center">
+      <div><h2>برنامه‌های من</h2><p class="small">حداکثر ۵ برنامه فعال برای هر حساب در نسخه اولیه.</p></div>
+      <div style="text-align:left"><button class="secondary" id="logoutBtn">خروج</button></div>
+    </div>
+    <div id="apps"><p class="muted">هنوز برنامه‌ای ثبت نشده است.</p></div>
+  </section>
+
+  <section class="panel hidden" id="createPanel">
+    <h2>ثبت برنامه جدید</h2>
+    <label for="appName">نام برنامه</label><input id="appName" maxlength="80" placeholder="مثلاً My Study App">
+    <div class="grid">
+      <div><label for="appType">نوع برنامه</label><select id="appType"><option value="public">عمومی — اندروید / وب / موبایل (PKCE)</option><option value="confidential">محرمانه — سرور قابل اعتماد</option></select></div>
+      <div><label for="website">وب‌سایت برنامه</label><input id="website" type="url" placeholder="https://example.com" dir="ltr"></div>
+    </div>
+    <label for="redirects">آدرس‌های بازگشت (هر خط یک آدرس دقیق)</label>
+    <textarea id="redirects" placeholder="https://example.com/auth/callback"></textarea>
+    <p class="small">در نسخه اولیه فقط HTTPS پذیرفته می‌شود؛ HTTP فقط برای localhost توسعه مجاز است. نشانی‌های دارای wildcard یا fragment پذیرفته نمی‌شوند.</p>
+    <button id="createBtn">ثبت برنامه و دریافت Client ID</button>
+    <div class="status hidden" id="result" aria-live="polite"></div>
+  </section>
+
+  <footer>PixMail ID · رایگان برای توسعه‌دهندگان · هرگز کلید محرمانه را داخل اپ موبایل یا کد مرورگر قرار نده.</footer>
+</main>
+<script type="module">
+const API = "https://cuxioyecyvxqykymcufg.supabase.co/functions/v1/pixmail-api";
+const PUBLISHABLE_KEY = "sb_publishable_a7mS99RDVBC_fySylkH3OQ_qoqXfbwQ";
+let accessToken = null;
+const $ = (id) => document.getElementById(id);
+function showStatus(id, message, ok=false) {
+  const el=$(id); el.textContent=message; el.classList.remove("good","bad");
+  el.classList.add(ok?"good":"bad");
+}
+async function api(path, method="GET", body=null) {
+  const headers={"apikey":PUBLISHABLE_KEY};
+  if(accessToken) headers.Authorization="Bearer "+accessToken;
+  if(body) headers["Content-Type"]="application/json";
+  const res=await fetch(API+path,{method,headers,body:body?JSON.stringify(body):undefined});
+  const data=await res.json().catch(()=>({error:"پاسخ سرور قابل خواندن نیست."}));
+  if(!res.ok) throw new Error(data.error||"درخواست انجام نشد.");
+  return data;
+}
+function appCard(app) {
+  const div=document.createElement("div"); div.className="app";
+  const name=document.createElement("strong"); name.textContent=app.app_name;
+  const id=document.createElement("p"); id.className="small"; id.textContent="Client ID: "+app.client_id;
+  const kind=document.createElement("p"); kind.className="small muted";
+  kind.textContent=(app.app_type==="public"?"عمومی · PKCE":"محرمانه · Client Secret")+
+    " · "+app.status+" · "+app.redirect_uris.join(" ، ");
+  div.append(name,id,kind); return div;
+}
+async function loadApps(){
+  const data=await api("/developers/apps");
+  $("apps").replaceChildren();
+  if(!data.apps?.length){const p=document.createElement("p");p.className="muted";p.textContent="هنوز برنامه‌ای ثبت نکرده‌ای."; $("apps").append(p);}
+  else data.apps.forEach(app=>$("apps").append(appCard(app)));
+}
+$("loginBtn").addEventListener("click",async()=>{
+  $("loginBtn").disabled=true;
+  try{
+    const data=await api("/auth/login","POST",{username:$("username").value.trim(),password:$("password").value});
+    accessToken=data.access_token;
+    if(!accessToken) throw new Error("ورود کامل نشد؛ احتمالاً حساب نیاز به تأیید دارد.");
+    $("loginPanel").classList.add("hidden"); $("dashboard").classList.remove("hidden"); $("createPanel").classList.remove("hidden");
+    await loadApps();
+  }catch(e){showStatus("loginStatus",e.message);}
+  finally{$("loginBtn").disabled=false;}
+});
+$("logoutBtn").addEventListener("click",()=>{
+  accessToken=null; $("dashboard").classList.add("hidden"); $("createPanel").classList.add("hidden"); $("loginPanel").classList.remove("hidden");
+  $("password").value=""; showStatus("loginStatus","از حساب خارج شدی.",true);
+});
+$("createBtn").addEventListener("click",async()=>{
+  $("createBtn").disabled=true; $("result").classList.remove("hidden");
+  try{
+    const redirect_uris=$("redirects").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    const data=await api("/developers/apps","POST",{
+      app_name:$("appName").value.trim(),app_type:$("appType").value,
+      website_url:$("website").value.trim(),redirect_uris
+    });
+    const result=$("result"); result.replaceChildren();
+    const success=document.createElement("p"); success.className="good"; success.textContent="برنامه با موفقیت ثبت شد.";
+    const client=document.createElement("pre"); client.textContent="Client ID: "+data.app.client_id;
+    result.append(success,client);
+    if(data.client_secret){
+      const warning=document.createElement("p"); warning.className="bad";
+      warning.textContent="این Client Secret فقط همین یک‌بار نمایش داده می‌شود. آن را فقط روی سرور امن ذخیره کن؛ داخل اپ یا مرورگر نگذار.";
+      const secret=document.createElement("pre"); secret.textContent="Client Secret: "+data.client_secret;
+      result.append(warning,secret);
+    } else {
+      const pkce=document.createElement("p"); pkce.textContent="برای این برنامه PKCE (S256) الزامی است و Client Secret ندارد."; result.append(pkce);
+    }
+    await loadApps();
+  }catch(e){showStatus("result",e.message);}
+  finally{$("createBtn").disabled=false;}
+});
+</script>
+</body>
+</html>

@@ -124,5 +124,5 @@ Initial standard OIDC scope: `openid` only. The internal alias is fetched separa
 - [ ] Configure and host the consent UI at the Auth Site URL + /oauth/consent.
 - [ ] Confirm asymmetric JWT signing for OIDC.
 - [ ] Register the first Pix service as an OAuth client.
-- [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection. The profiles table currently has no rows, so the real-user alias mapping cannot yet be exercised.
+- [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection. No PixMail profile exists yet; the existing auth-user trigger creates a profile during signup. After the first account is registered, live alias mapping can be tested.
 - [ ] Implement callback/token exchange in that service.

@@ -24,7 +24,17 @@ PixMail is initially an internal service: messages are delivered only to PixMail
 
 The planned address format is `username@pixmail.io`. This becomes a real, publicly reachable email address only after the domain is registered and mail infrastructure is configured. Until then, it is an internal PixMail identifier.
 
-## Supabase Edge API\n\nBase URL: `https://cuxioyecyvxqykymcufg.supabase.co/functions/v1/pixmail-api`\n\nRoutes: `GET /health`, `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/logout`, and `POST /auth/recover`. Registration uses a recovery email for Supabase Auth and returns a planned `username@pixmail.io` internal alias. This alias is not yet a real externally deliverable mailbox.\n\n## Documentation
+## Supabase Edge API
+
+Base URL: `https://cuxioyecyvxqykymcufg.supabase.co/functions/v1/pixmail-api`
+
+Routes: `GET /health`, `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/logout`, and `POST /auth/recover`. Registration uses a recovery email for Supabase Auth and returns a planned `username@pixmail.io` internal alias. This alias is not yet a real externally deliverable mailbox.
+
+## PixMail ID
+
+OAuth 2.1 / OpenID Connect design and implementation checklist: [docs/PixMail-ID-OAuth.md](docs/PixMail-ID-OAuth.md). The OAuth server is not yet confirmed enabled; the consent UI and end-to-end login remain to be implemented and tested.
+
+## Documentation
 
 - [Architecture and implementation status](ARCHITECTURE.md)
 - [Supabase schema and security notes](supabase/README.md)

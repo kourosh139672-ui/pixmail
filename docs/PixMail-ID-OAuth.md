@@ -100,11 +100,45 @@ Registration and basic PixMail ID sign-in are free. To protect users, PixMail ma
 
 Each app gets a separate client ID and consent screen identity. The developer must provide an app name, app type, website or project URL, and redirect URI(s). Developers must not impersonate other brands or request mailbox/message access in the initial release.
 
-The public developer portal and client provisioning service are not implemented yet. Until they exist, client registration remains an operator-managed step; do not promise that developers can self-issue API keys today.
+The first developer registration backend and a static portal page have now been added. The portal source is `developer/index.html`; it is not publicly hosted yet. Client provisioning calls Supabase Auth's server-side OAuth admin endpoint from the PixMail Edge Function, never from browser code. Registration remains unavailable until OAuth 2.1 Server is enabled in the Supabase Dashboard.
 
 Register each Pix service as a separate OAuth client. Use exact HTTPS redirect URIs. Use public clients with PKCE for Android/mobile and browser-only apps; use confidential clients only when a service has a trusted server capable of protecting its client secret. Keep client secrets out of mobile apps, browser bundles, source control, and chat.
 
 Initial standard OIDC scope: `openid` only. The internal alias is fetched separately from the authenticated PixMail Identity endpoint.
+
+## Developer registration API (initial implementation)
+
+Base URL:
+`https://cuxioyecyvxqykymcufg.supabase.co/functions/v1/pixmail-api`
+
+The developer portal uses the authenticated PixMail account session and these routes:
+- `POST /auth/login` — sign in with PixMail username/password.
+- `GET /developers/apps` — list the signed-in developer's registered apps.
+- `POST /developers/apps` — register an app and provision its OAuth client.
+
+Example registration body:
+```json
+{
+  "app_name": "Example App",
+  "app_type": "public",
+  "website_url": "https://example.com",
+  "redirect_uris": ["https://example.com/auth/callback"]
+}
+```
+
+Rules enforced by the Edge Function:
+- A valid PixMail access token is required.
+- App name is 2–80 characters; 1–10 exact redirect URIs are accepted.
+- HTTPS is required; HTTP is allowed only for localhost development.
+- Wildcards, URL credentials, and URL fragments are rejected.
+- Each account can create up to 5 active apps in the initial release.
+- Public clients use `client_type=public`, `token_endpoint_auth_method=none`, and PKCE.
+- Confidential clients use `client_type=confidential` and `client_secret_basic`; their secret is returned only once and is never stored in the PixMail developer-app registry.
+- App ownership metadata is stored in `public.pixmail_developer_apps`; RLS is enabled and direct anon/authenticated table access is revoked. Only the server-side service role can access it.
+
+The portal source currently lives at `developer/index.html`. It includes sign-in, app registration, and an app list. GitHub Pages or another HTTPS host still needs to be configured before developers can visit it publicly.
+
+Important: the backend's client-creation call depends on Supabase OAuth 2.1 Server being enabled. Until that dashboard setting is enabled, registration returns a safe `503` response and no client should be advertised as issued.
 
 ## Client flow
 
@@ -130,7 +164,9 @@ Initial standard OIDC scope: `openid` only. The internal alias is fetched separa
 
 - [x] Selected internal `username@pixmail.io` alias for connected services.
 - [x] Product decision: PixMail ID registration and basic sign-in will be free and open to developers worldwide, using per-app API Key / Client ID.
-- [ ] Build public developer portal, app registration, redirect URI allowlist, API Key / Client ID issuance, and abuse controls.
+- [x] Build initial developer registration API, app ownership registry, redirect URI validation, Client ID provisioning, and a static portal source page.
+- [ ] Publish the developer portal on an HTTPS host (GitHub Pages is not configured yet).
+- [ ] Add app revocation/editing UI and stronger abuse/rate-limit controls; initial cap is 5 active apps per account.
 - [x] Added authenticated PixMail Identity endpoint returning only the internal alias and stable subject.
 - [x] Minimized regular `/auth/me` response so it does not return the recovery email.
 - [x] Created database Custom Access Token Hook; OAuth access-token `email` claim is mapped to the internal alias and marked unverified.
@@ -139,6 +175,7 @@ Initial standard OIDC scope: `openid` only. The internal alias is fetched separa
 - [ ] Enable OAuth 2.1 Server in Dashboard.
 - [ ] Configure and host the consent UI at the Auth Site URL + /oauth/consent.
 - [ ] Confirm asymmetric JWT signing for OIDC.
+- [ ] Enable OAuth 2.1 Server in Dashboard before testing developer registration.
 - [ ] Register the first Pix service as an OAuth client.
 - [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection. No PixMail profile exists yet; the existing auth-user trigger creates a profile during signup. After the first account is registered, live alias mapping can be tested.
 - [ ] Implement callback/token exchange in that service.

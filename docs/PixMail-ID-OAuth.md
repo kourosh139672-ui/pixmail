@@ -4,22 +4,45 @@
 
 PixMail ID is the single-sign-on identity provider for first-party Pix services and, later, approved third-party clients.
 
-The selected access level is **email**:
-- OpenID Connect identity (openid)
-- email claim (email)
-- stable subject/user identifier (sub / Supabase user ID)
+The selected identity data is:
+- Stable subject/user identifier (`sub` / Supabase user ID)
+- PixMail internal alias (`username@pixmail.io`)
 
-Do not request profile, phone, contacts, mailbox, or message access in this first version.
+**Never expose the Supabase Auth email.** It is the private recovery/verification address.
 
-## Important email distinction
+## Email and OIDC privacy design
 
-The current PixMail account model uses Supabase Auth email as the account recovery/verification email. The planned username@pixmail.io address is currently only an internal alias and is not an externally deliverable mailbox.
+The `@pixmail.io` address is currently an internal alias, not an externally deliverable mailbox. It must not be described as a verified, deliverable email address.
 
-Supabase's standard email scope returns the Supabase Auth email. It does not automatically return the planned @pixmail.io alias. Before production, product owner must choose whether the email claim should expose:
-1. the verified recovery email; or
-2. the PixMail alias (which must be clearly marked as an internal address until real mail hosting exists).
+Supabase's standard OIDC `email` scope returns the Supabase Auth email. A Custom Access Token Hook only changes the access-token JWT; it does not change the Auth user response, and must not be assumed to rewrite the OIDC ID token or UserInfo response. Therefore:
+- Request `openid` only in the standard OIDC flow.
+- Do **not** request the standard `email` scope while it would reveal the recovery email.
+- After the OAuth access token is issued, the relying service may call the PixMail Identity endpoint below to obtain the internal alias.
+- The endpoint returns `email_verified: false` and `email_type: internal_alias`; the alias is not a real mailbox.
+- Never silently substitute the recovery email for the PixMail alias.
 
-Never silently substitute one for the other.
+## PixMail Identity endpoint
+
+Authenticated endpoint:
+`GET https://cuxioyecyvxqykymcufg.supabase.co/functions/v1/pixmail-api/auth/id`
+
+Headers:
+- `apikey: <PixMail publishable key>`
+- `Authorization: Bearer <OAuth access token>`
+
+The endpoint validates the access token with Supabase Auth and requires an OAuth `client_id` claim. It returns only:
+```json
+{
+  "sub": "<stable Supabase user ID>",
+  "email": "username@pixmail.io",
+  "email_verified": false,
+  "email_type": "internal_alias",
+  "address_status": "internal_alias_only"
+}
+```
+It does not return the private recovery email. This is a PixMail-specific identity response, not the standard OIDC UserInfo endpoint. The service must validate the OAuth ID token normally and use `sub` as the stable account key.
+
+The regular `GET /auth/me` response is also minimized and no longer returns the Supabase Auth email.
 
 ## OAuth protocol
 
@@ -48,26 +71,28 @@ The /oauth/consent page must:
 1. Require a signed-in PixMail account; preserve authorization_id through sign-in.
 2. Call supabase.auth.oauth.getAuthorizationDetails(authorization_id).
 3. Display the requesting app name, exact redirect URI, and requested scopes.
-4. Explain that the app will receive the user's stable ID and email claim.
-5. Offer explicit Approve and Deny actions.
-6. Call approveAuthorization(authorization_id) or denyAuthorization(authorization_id).
-7. Navigate only to the redirect_url returned by Supabase Auth.
-8. Never ask for or reveal the user's password to the client app.
+4. Explain that the app receives the stable PixMail ID and the internal `@pixmail.io` alias through the PixMail Identity endpoint; it does not receive the recovery email.
+5. For this version, allow only the `openid` standard OIDC scope. Reject or clearly block requests for `email`, `profile`, or `phone` until safe claim mapping is supported.
+6. Offer explicit Approve and Deny actions.
+7. Call approveAuthorization(authorization_id) or denyAuthorization(authorization_id).
+8. Navigate only to the redirect_url returned by Supabase Auth.
+9. Never ask for or reveal the user's password to the client app.
 
 ## OAuth client registration policy
 
 Register each Pix service as a separate OAuth client. Use exact HTTPS redirect URIs. Use public clients with PKCE for Android/mobile and browser-only apps; use confidential clients only when a service has a trusted server capable of protecting its client secret. Keep client secrets out of mobile apps, browser bundles, source control, and chat.
 
-Initial requested scopes: openid email. Do not include profile unless separately approved.
+Initial standard OIDC scope: `openid` only. The internal alias is fetched separately from the authenticated PixMail Identity endpoint.
 
 ## Client flow
 
 1. Generate a cryptographically random PKCE verifier and S256 challenge.
 2. Generate and store a random state; verify it on callback.
-3. Redirect to the authorization endpoint with response_type=code, registered client_id, exact redirect_uri, scope=openid email, code_challenge, code_challenge_method=S256, and state.
+3. Redirect to the authorization endpoint with response_type=code, registered client_id, exact redirect_uri, scope=openid, code_challenge, code_challenge_method=S256, and state.
 4. Exchange the returned one-time code at the token endpoint using the original verifier.
 5. Validate the ID token (issuer, audience, signature via JWKS, expiry, nonce if used).
-6. Create the local service session; do not treat the email address alone as a stable user identifier. Use sub.
+6. Call the PixMail Identity endpoint with the OAuth access token to obtain the internal alias.
+7. Create the local service session; use `sub`, not email, as the stable user identifier.
 
 ## Revocation and privacy
 
@@ -76,16 +101,18 @@ Initial requested scopes: openid email. Do not include profile unless separately
 - Ask consent per client; do not silently grant access because the app belongs to the Pix family.
 - Do not log authorization codes, access tokens, refresh tokens, ID tokens, or client secrets.
 - Do not store PixMail passwords in any relying service.
-- The first release grants identity/email only, not access to PixMail messages or mailbox contents.
+- The first release grants identity only, not access to PixMail messages or mailbox contents.
+- The recovery/verification email remains private and is used only for PixMail account operations.
 
 ## Implementation status
 
-- [x] Confirmed active Supabase project and existing PixMail Edge Functions.
-- [x] Chosen minimum OAuth scopes: openid email.
-- [ ] Decide whether email claim is verified recovery email or internal @pixmail.io alias.
+- [x] Selected internal `username@pixmail.io` alias for connected services.
+- [x] Added authenticated PixMail Identity endpoint returning only the internal alias and stable subject.
+- [x] Minimized regular `/auth/me` response so it does not return the recovery email.
+- [x] Chosen standard OIDC scope: `openid` only, to avoid exposing recovery email.
 - [ ] Enable OAuth 2.1 Server in Dashboard.
 - [ ] Configure and host the consent UI at the Auth Site URL + /oauth/consent.
 - [ ] Confirm asymmetric JWT signing for OIDC.
 - [ ] Register the first Pix service as an OAuth client.
+- [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection.
 - [ ] Implement callback/token exchange in that service.
-- [ ] Test approve, deny, state mismatch, expired code, refresh, and grant revocation.

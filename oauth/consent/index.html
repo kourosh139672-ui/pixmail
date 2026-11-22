@@ -82,8 +82,8 @@ async function init(){
  }catch(e){status(e.message||"بارگذاری درخواست ممکن نشد.");}
 }
 $("loginBtn").addEventListener("click",async()=>{ $("loginBtn").disabled=true;try{await login();await loadDetails();}catch(e){status(e.message||"ورود ناموفق بود.");}finally{$("loginBtn").disabled=false;}});
-$("approveBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("approveBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.approveAuthorization(authorizationId);if(error)throw error;location.assign(data.redirect_url);}catch(e){status(e.message||"تأیید درخواست انجام نشد.");$("approveBtn").disabled=false;}});
-$("denyBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("denyBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.denyAuthorization(authorizationId);if(error)throw error;location.assign(data.redirect_url);}catch(e){status(e.message||"رد درخواست انجام نشد.");$("denyBtn").disabled=false;}});
+$("approveBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("approveBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.approveAuthorization(authorizationId,{skipBrowserRedirect:true});if(error)throw error;if(!data?.redirect_url)throw new Error("آدرس بازگشت از سرور دریافت نشد.");location.assign(data.redirect_url);}catch(e){status(e.message||"تأیید درخواست انجام نشد.");$("approveBtn").disabled=false;}});
+$("denyBtn").addEventListener("click",async()=>{if(!authorizationId)return;$("denyBtn").disabled=true;try{const {data,error}=await supabase.auth.oauth.denyAuthorization(authorizationId,{skipBrowserRedirect:true});if(error)throw error;if(!data?.redirect_url)throw new Error("آدرس بازگشت از سرور دریافت نشد.");location.assign(data.redirect_url);}catch(e){status(e.message||"رد درخواست انجام نشد.");$("denyBtn").disabled=false;}});
 init();
 </script>
 </body></html>

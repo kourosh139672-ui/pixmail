@@ -14,12 +14,15 @@ The selected identity data is:
 
 The `@pixmail.io` address is currently an internal alias, not an externally deliverable mailbox. It must not be described as a verified, deliverable email address.
 
-Supabase's standard OIDC `email` scope returns the Supabase Auth email. A Custom Access Token Hook only changes the access-token JWT; it does not change the Auth user response, and must not be assumed to rewrite the OIDC ID token or UserInfo response. Therefore:
+Supabase's standard OIDC `email` scope returns the Supabase Auth email. The database Custom Access Token Hook created for PixMail replaces the `email` claim only in OAuth access-token JWTs with the internal alias and sets `email_verified=false`. It does not rewrite the OIDC ID token or UserInfo response. Therefore:
 - Request `openid` only in the standard OIDC flow.
-- Do **not** request the standard `email` scope while it would reveal the recovery email.
+- Do **not** request the standard `email` scope while it could reveal the recovery email.
+- Enable the PixMail Custom Access Token Hook in the Dashboard before issuing OAuth tokens; until enabled, do not activate OAuth for clients.
 - After the OAuth access token is issued, the relying service may call the PixMail Identity endpoint below to obtain the internal alias.
 - The endpoint returns `email_verified: false` and `email_type: internal_alias`; the alias is not a real mailbox.
 - Never silently substitute the recovery email for the PixMail alias.
+
+The hook runs only for OAuth-issued access tokens with a `client_id`; normal PixMail password login and recovery continue using the private Supabase Auth email internally.
 
 ## PixMail Identity endpoint
 
@@ -56,12 +59,17 @@ Provider endpoints for project cuxioyecyvxqykymcufg:
 
 ## Provider setup still required in Supabase Dashboard
 
-1. Open Authentication → OAuth Server.
-2. Enable OAuth 2.1 Server.
-3. Set Authorization Path to /oauth/consent.
-4. Set the Auth Site URL to the HTTPS origin that hosts the PixMail consent UI.
-5. Keep dynamic client registration disabled for the first-party Pix ecosystem.
-6. For OIDC ID tokens, verify the project uses asymmetric JWT signing keys (ES256 or RS256); HS256 cannot issue OIDC ID tokens.
+1. Open Authentication → Hooks (Beta).
+2. Enable the **Custom Access Token** hook and select `public.pixmail_custom_access_token_hook`.
+3. Confirm the hook is active before issuing OAuth tokens. The SQL function and its restricted profile-read policy are already deployed.
+4. Open Authentication → OAuth Server.
+5. Enable OAuth 2.1 Server.
+6. Set Authorization Path to /oauth/consent.
+7. Set the Auth Site URL to the HTTPS origin that hosts the PixMail consent UI.
+8. Keep dynamic client registration disabled for the first-party Pix ecosystem.
+9. For OIDC ID tokens, verify the project uses asymmetric JWT signing keys (ES256 or RS256); HS256 cannot issue OIDC ID tokens.
+
+The hook was deployed to the database, but it is **not confirmed enabled** in the Dashboard yet.
 
 OAuth Server is currently **not confirmed enabled**. Do not advertise PixMail ID as live until the dashboard setting and end-to-end test are complete.
 
@@ -109,10 +117,12 @@ Initial standard OIDC scope: `openid` only. The internal alias is fetched separa
 - [x] Selected internal `username@pixmail.io` alias for connected services.
 - [x] Added authenticated PixMail Identity endpoint returning only the internal alias and stable subject.
 - [x] Minimized regular `/auth/me` response so it does not return the recovery email.
-- [x] Chosen standard OIDC scope: `openid` only, to avoid exposing recovery email.
+- [x] Created database Custom Access Token Hook; OAuth access-token `email` claim is mapped to the internal alias and marked unverified.
+- [x] Chosen standard OIDC scope: `openid` only, to avoid exposing recovery email through ID token/UserInfo.
+- [ ] Enable the Custom Access Token Hook in Dashboard and verify with a real PixMail profile.
 - [ ] Enable OAuth 2.1 Server in Dashboard.
 - [ ] Configure and host the consent UI at the Auth Site URL + /oauth/consent.
 - [ ] Confirm asymmetric JWT signing for OIDC.
 - [ ] Register the first Pix service as an OAuth client.
-- [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection.
+- [ ] End-to-end test OAuth and identity endpoint, including denied requests and non-OAuth token rejection. The profiles table currently has no rows, so the real-user alias mapping cannot yet be exercised.
 - [ ] Implement callback/token exchange in that service.

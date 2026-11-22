@@ -11,7 +11,7 @@ The planned account address is `username@pixmail.io`. Until the domain is regist
 | Layer | Choice | Responsibility |
 |---|---|---|
 | Android client | Kotlin | Native Android application |
-| Backend API | Python + FastAPI | Authenticated business logic and messaging |
+| Backend API | Supabase Edge Functions (TypeScript) | Authenticated HTTP API; FastAPI source is retained as an earlier prototype |
 | Database | Supabase PostgreSQL 17 | Profiles, conversations, messages, mailbox state |
 | Identity | Supabase Auth | Account identity and authentication |
 | File storage | Private object storage (not configured yet) | Attachments and media |
@@ -81,7 +81,7 @@ Targets: 100 MB maximum attachment size, 1 GB mailbox quota per user, up to two 
 - `/search`: subject and sender search
 - `/blocks`, `/reports`, `/settings`
 
-The FastAPI source now includes Supabase Auth registration, username/password login, token refresh, current-user, logout and recovery routes. The backend is not deployed yet; these routes still require the publishable key and a server-only Supabase secret key in the hosting environment.
+Supabase Edge Function `pixmail-api` is deployed with registration, username/password login, token refresh, current-user, logout and recovery routes. Live end-to-end tests remain. The function uses Supabase-managed environment secrets; secret credentials are never sent to the Android client.
 
 ## 8. Implementation phases
 
